@@ -1,0 +1,220 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Day of Succes | Cotisations</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="toastContainer" class="toast-container"></div>
+    <main class="container">
+      <header class="header">
+        <div>
+          <p class="eyebrow">Day of Succes</p>
+          <h1>Cotisations</h1>
+        </div>
+        <p class="muted">Suivi hebdomadaire, dettes, depots et confirmations.</p>
+      </header>
+
+      <section id="authSection" class="card">
+        <h2>Connexion</h2>
+        <form id="loginForm" class="form-grid">
+          <label>
+            Email
+            <input id="email" type="email" required />
+          </label>
+          <label>
+            Mot de passe
+            <input id="password" type="password" required />
+          </label>
+          <button type="submit">Se connecter</button>
+        </form>
+        <p class="hint">Les comptes sont geres dans Supabase Auth, avec les roles dans la table <code>profiles</code>.</p>
+      </section>
+
+      <section id="appSection" class="hidden">
+        <div class="topbar card">
+          <div>
+            <p id="welcomeText" class="session-title"></p>
+            <p id="systemInfo" class="muted"></p>
+          </div>
+          <button id="logoutBtn" class="danger">Se déconnecter</button>
+        </div>
+
+        <section id="adminView" class="hidden">
+          <div id="adminSkeleton" class="card skeleton-wrap">
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
+          </div>
+
+          <div class="kpi-grid">
+            <article class="card kpi">
+              <h3>Total groupe</h3>
+              <p id="globalTotal" class="kpi-value amount-positive" data-value="0">0 FC</p>
+            </article>
+            <article class="card kpi">
+              <h3>Attendu cumulé</h3>
+              <p id="globalExpected" class="kpi-value" data-value="0">0 FC</p>
+            </article>
+            <article class="card kpi">
+              <h3>Dette totale</h3>
+              <p id="globalDebt" class="kpi-value amount-debt" data-value="0">0 FC</p>
+            </article>
+            <article class="card kpi">
+              <h3>Membres en retard</h3>
+              <p id="globalLateMembers" class="kpi-value">0</p>
+            </article>
+          </div>
+
+          <div class="grid-2">
+            <article class="card">
+              <h3>Enregistrer un dépôt</h3>
+              <form id="depositForm" class="form-grid">
+                <label>
+                  Membre
+                  <select id="depositMember" required></select>
+                </label>
+                <label>
+                  Montant (FC)
+                  <input id="depositAmount" type="number" min="1" step="1" required />
+                </label>
+                <label>
+                  Date
+                  <input id="depositDate" type="date" required />
+                </label>
+                <button type="submit">Enregistrer</button>
+              </form>
+            </article>
+
+            <article class="card">
+              <h3>Membres & Recherche</h3>
+              <label>
+                Recherche membre
+                <input id="searchMember" type="text" placeholder="Nom du membre..." />
+              </label>
+              <ul id="membersList" class="list"></ul>
+            </article>
+          </div>
+
+          <article class="card">
+            <div class="inline-between">
+              <h3>Cycles hebdomadaires & confirmations</h3>
+              <button id="initCyclesBtn" type="button">Initialiser les cycles</button>
+            </div>
+            <div class="grid-3">
+              <label>
+                Membre
+                <select id="cycleMember"></select>
+              </label>
+              <label>
+                Cycle
+                <select id="cycleSelect"></select>
+              </label>
+              <p id="cycleStatus" class="muted">Statut actuel: -</p>
+            </div>
+            <div class="actions">
+              <button id="confirmCycleBtn" type="button">Confirmer paiement</button>
+              <button id="waiveCycleBtn" type="button">Geler/Exempter</button>
+              <button id="reopenCycleBtn" type="button" class="danger">Reouvrir en impayé</button>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Tableau global des dettes</h3>
+            <div class="admin-controls">
+              <label>
+                Trier
+                <select id="sortDebt">
+                  <option value="debt-desc" selected>Dette décroissante</option>
+                  <option value="debt-asc">Dette croissante</option>
+                  <option value="name-asc">Nom A-Z</option>
+                </select>
+              </label>
+              <label class="checkbox-line">
+                <input id="filterLateOnly" type="checkbox" />
+                En retard uniquement
+              </label>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Membre</th>
+                    <th>Total dépôts</th>
+                    <th>Dette</th>
+                    <th>Statut</th>
+                    <th>Ajustement</th>
+                  </tr>
+                </thead>
+                <tbody id="debtsTableBody"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Historique global des dépôts</h3>
+            <ul id="adminDepositsList" class="list"></ul>
+          </article>
+
+          <article class="card">
+            <h3>Historique ajustements dettes</h3>
+            <ul id="debtHistoryList" class="list"></ul>
+          </article>
+        </section>
+
+        <section id="memberView" class="hidden">
+          <div id="memberSkeleton" class="card skeleton-wrap">
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
+          </div>
+
+          <article class="card">
+            <h3>Mon Dashboard</h3>
+            <div class="kpi-grid">
+              <div class="kpi">
+                <h4>Total groupe</h4>
+                <p id="memberGlobalTotal" class="kpi-value amount-positive" data-value="0">0 FC</p>
+              </div>
+              <div class="kpi">
+                <h4>Mes dépôts</h4>
+                <p id="memberTotal" class="kpi-value amount-positive" data-value="0">0 FC</p>
+              </div>
+              <div class="kpi">
+                <h4>Dette calculée</h4>
+                <p id="memberExpected" class="kpi-value" data-value="0">0 FC</p>
+              </div>
+              <div class="kpi">
+                <h4>Ma dette</h4>
+                <p id="memberDebt" class="kpi-value amount-debt" data-value="0">0 FC</p>
+              </div>
+            </div>
+            <div class="stats">
+              <p>Statut: <strong id="memberStatus">-</strong></p>
+              <p>Cette semaine: <strong id="memberThisWeekStatus">-</strong></p>
+              <p>Streak de paiement: <strong id="memberStreak">0 semaine(s)</strong></p>
+              <p id="memberLateBadgeWrap" class="hidden">
+                <span id="memberLateBadge" class="badge badge-danger"></span>
+              </p>
+            </div>
+            <div id="memberWeekTimeline" class="timeline"></div>
+          </article>
+
+          <article class="card">
+            <h3>Mon historique de paiements</h3>
+            <ul id="memberDepositsList" class="list"></ul>
+          </article>
+
+          <article class="card">
+            <h3>Mes rappels hebdomadaires</h3>
+            <ul id="memberNotificationsList" class="list"></ul>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

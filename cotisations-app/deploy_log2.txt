@@ -1,0 +1,2 @@
+﻿
+[1m[31mError:[39m[22m Cannot understand what targets to deploy/serve. No targets in firebase.json match '--only hosting functions'. If you are using PowerShell make sure you place quotes around any comma-separated lists (ex: --only "functions,firestore").
