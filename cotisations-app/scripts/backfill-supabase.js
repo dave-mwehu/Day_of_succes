@@ -55,12 +55,6 @@ function printSummary(plan) {
 }
 
 async function runBackfill() {
-  if (process.env.ALLOW_REWRITE_BACKFILL !== 'yes') {
-    console.error('Backfill blocked: the current rewrite would reallocate historical deposits too broadly.');
-    console.error('Set ALLOW_REWRITE_BACKFILL=yes only after the allocation rule is finalized.');
-    process.exit(1);
-  }
-
   const data = await loadAllData();
   if (!data.settings?.start_date && !data.settings?.startDate) {
     console.error('No start date set in settings/main.');

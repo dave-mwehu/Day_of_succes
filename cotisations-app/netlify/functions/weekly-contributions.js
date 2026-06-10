@@ -47,30 +47,11 @@ async function applyWeeklyLogic() {
   }
 
   await writeBatches(supabase, 'weekly_cycles', plan.cyclesToUpsert, { onConflict: 'id' });
+  await writeBatches(supabase, 'member_cycles', plan.memberCycleUpserts, { onConflict: 'id' });
+  await writeBatches(supabase, 'members', plan.memberUpdates, { onConflict: 'id' });
+  await writeBatches(supabase, 'public_stats', [plan.publicStats], { onConflict: 'id' });
 
-  const existingMemberCycleIds = new Set((data.memberCycles || []).map((row) => row.id));
-  const missingMemberCycles = [];
-  for (const member of data.members || []) {
-    for (const cycle of plan.activeCycles) {
-      const id = `${member.id}_${cycle.id}`;
-      if (!existingMemberCycleIds.has(id)) {
-        missingMemberCycles.push({
-          id,
-          member_id: member.id,
-          cycle_id: cycle.id,
-          status: 'unpaid',
-          amount_paid: 0,
-          updated_at: new Date().toISOString(),
-        });
-      }
-    }
-  }
-
-  if (missingMemberCycles.length) {
-    await writeBatches(supabase, 'member_cycles', missingMemberCycles, { onConflict: 'id' });
-  }
-
-  return { ...plan, missingMemberCycles };
+  return plan;
 }
 
 exports.handler = async function () {
@@ -82,7 +63,8 @@ exports.handler = async function () {
         message: 'Weekly contribution processing completed.',
         weeklyCycles: plan.expectedCycles.length,
         members: plan.memberResults.length,
-        missingMemberCycles: plan.missingMemberCycles.length,
+        debt: plan.publicStats.debt,
+        credit: plan.memberResults.reduce((sum, result) => sum + result.computedCredit, 0),
       }),
     };
   } catch (err) {

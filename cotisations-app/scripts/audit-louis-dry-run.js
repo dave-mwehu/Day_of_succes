@@ -82,8 +82,10 @@ async function auditLouis() {
   console.log(`  Total deposits: ${formatCurrency(result.totalDeposits)}`);
   console.log(`  Allocated to weekly cycles: ${formatCurrency(result.allocatedToCycles)}`);
   console.log(`  Remaining after weekly cycles: ${formatCurrency(result.remainingAfterCycles)}`);
+  console.log(`  Allocated to manual debt: ${formatCurrency(result.allocatedToManualDebt)}`);
+  console.log(`  Remaining manual debt: ${formatCurrency(result.remainingManualDebt)}`);
   console.log(`  computed_debt would be: ${formatCurrency(result.computedDebt)}`);
-  console.log(`  computed_credit would be: ${formatCurrency(result.computedCredit)}`);
+  console.log(`  computed_credit would be: ${formatCurrency(result.computedCredit)} (advance for future weeks)`);
 
   console.log('\nFirst allocations after correction');
   result.memberCycleRows.slice(0, 12).forEach((row) => {

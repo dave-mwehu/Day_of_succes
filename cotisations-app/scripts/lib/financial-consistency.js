@@ -160,6 +160,9 @@ function computeMemberFinancials(member, activeCycles, memberCycles, deposits, d
   const computedDebt = Math.max(0, balance);
   const computedCredit = Math.max(0, -balance);
   const lateWeeks = Math.ceil(computedDebt / Number(defaultWeeklyAmount || 10000));
+  const remainingAfterCycles = Math.max(0, totalDeposits - memberExpected);
+  const allocatedToManualDebt = Math.min(remainingAfterCycles, Math.max(0, manualDebtBase));
+  const remainingManualDebt = Math.max(0, manualDebtBase - allocatedToManualDebt);
 
   const existingCyclePaid = memberCycleList.reduce((sum, mc) => {
     const cycleId = mc.cycle_id || mc.cycleId;
@@ -177,7 +180,9 @@ function computeMemberFinancials(member, activeCycles, memberCycles, deposits, d
     computedCredit,
     computedLateWeeks: lateWeeks,
     allocatedToCycles: Math.min(totalDeposits, memberExpected),
-    remainingAfterCycles: Math.max(0, totalDeposits - memberExpected),
+    allocatedToManualDebt,
+    remainingAfterCycles,
+    remainingManualDebt,
     existingCyclePaid,
     unappliedDepositAmount: totalDeposits - existingCyclePaid,
     memberCycleRows,
