@@ -234,9 +234,11 @@ function computeMemberStats(member) {
   });
 
   const manualDebtBase = Number(member.manual_debt_base ?? member.debt_adjustment ?? 0);
-  const autoDebt = Math.max(0, expected - total);
-  const debt = Math.max(0, expected + manualDebtBase - total);
-  const credit = Math.max(0, total - expected - manualDebtBase);
+  const storedDebt = member.computed_debt == null ? null : Number(member.computed_debt || 0);
+  const storedCredit = member.computed_credit == null ? null : Number(member.computed_credit || 0);
+  const debt = storedDebt ?? Math.max(0, expected + manualDebtBase - total);
+  const credit = storedCredit ?? 0;
+  const autoDebt = Math.max(0, debt - manualDebtBase);
   const lateWeeks = Math.ceil(debt / weekly);
   const elapsedWeeks = activeCycles.length;
   const streak = computeStreak(activeCycles.map((c) => getMemberCycle(member.id, c.id) || { status: "unpaid" }));
