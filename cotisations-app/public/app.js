@@ -580,7 +580,6 @@ async function applyNewDepositAllocation(memberId, amount) {
       .from("members")
       .update({
         computed_debt: computedDebt,
-        computed_credit: computedCredit,
         computed_total: computedTotal,
         stats_updated_at: new Date().toISOString(),
       })
