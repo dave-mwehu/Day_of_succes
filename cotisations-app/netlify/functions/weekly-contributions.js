@@ -37,21 +37,12 @@ async function writeBatches(supabase, table, rows, options) {
 }
 
 async function applyWeeklyLogic() {
-  const supabase = getSupabase();
-  const data = await loadAllData(supabase);
-  const plan = buildConsistencyPlan(data);
-
-  if (plan.cycleAudit.duplicateIndexes.length) {
-    const indices = plan.cycleAudit.duplicateIndexes.map((entry) => entry.index).join(', ');
-    throw new Error(`Duplicate weekly cycle indices found: ${indices}`);
-  }
-
-  await writeBatches(supabase, 'weekly_cycles', plan.cyclesToUpsert, { onConflict: 'id' });
-  await writeBatches(supabase, 'member_cycles', plan.memberCycleUpserts, { onConflict: 'id' });
-  await writeBatches(supabase, 'members', plan.memberUpdates, { onConflict: 'id' });
-  await writeBatches(supabase, 'public_stats', [plan.publicStats], { onConflict: 'id' });
-
-  return plan;
+  // Historical data is the current source of truth. Do not rewrite old cycles,
+  // allocations, debts, or credits from this scheduled function.
+  getSupabase();
+  return {
+    message: 'Historical rewrite disabled. New deposit allocation must be handled at deposit time.',
+  };
 }
 
 exports.handler = async function () {
@@ -59,13 +50,7 @@ exports.handler = async function () {
     const plan = await applyWeeklyLogic();
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: 'Weekly contribution processing completed.',
-        weeklyCycles: plan.expectedCycles.length,
-        members: plan.memberResults.length,
-        debt: plan.publicStats.debt,
-        credit: plan.memberResults.reduce((sum, result) => sum + result.computedCredit, 0),
-      }),
+      body: JSON.stringify(plan),
     };
   } catch (err) {
     console.error(err);

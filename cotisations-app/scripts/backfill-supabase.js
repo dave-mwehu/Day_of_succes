@@ -55,6 +55,10 @@ function printSummary(plan) {
 }
 
 async function runBackfill() {
+  console.error('Backfill blocked: existing historical data must not be rewritten.');
+  console.error('Use a future-only allocation path for new deposits instead.');
+  process.exit(1);
+
   const data = await loadAllData();
   if (!data.settings?.start_date && !data.settings?.startDate) {
     console.error('No start date set in settings/main.');

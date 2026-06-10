@@ -509,6 +509,70 @@ async function updateMemberCycleStatus(memberId, cycleId, status) {
   showToast(`${member?.name || memberId}: ${status}`, "success");
 }
 
+async function applyNewDepositAllocation(memberId, amount) {
+  const [memberRes, cyclesRes, memberCyclesRes, depositsRes] = await Promise.all([
+    supabase.from("members").select("*").eq("id", memberId).single(),
+    supabase.from("weekly_cycles").select("*").order("index"),
+    supabase.from("member_cycles").select("*").eq("member_id", memberId),
+    supabase.from("deposits").select("amount").eq("member_id", memberId),
+  ]);
+  const member = handleDb(memberRes);
+  const cycles = handleDb(cyclesRes) || [];
+  const memberCycles = handleDb(memberCyclesRes) || [];
+  const deposits = handleDb(depositsRes) || [];
+
+  let remainingForCycleRows = Number(amount || 0);
+  const rows = [];
+  cycles
+    .filter((cycle) => !["cancelled", "frozen"].includes(String(cycle.status || "open").toLowerCase()))
+    .sort((a, b) => Number(a.index || 0) - Number(b.index || 0))
+    .forEach((cycle) => {
+      if (remainingForCycleRows <= 0) return;
+      const existing = memberCycles.find((row) => row.cycle_id === cycle.id);
+      if (existing?.status === "waived") return;
+      const weekly = Number(cycle.weekly_amount || state.settings?.weekly_amount || WEEKLY_AMOUNT);
+      const paid = Number(existing?.amount_paid || 0);
+      const needed = Math.max(0, weekly - paid);
+      if (!needed) return;
+      const applied = Math.min(needed, remainingForCycleRows);
+      const nextPaid = paid + applied;
+      rows.push({
+        id: existing?.id || `${memberId}_${cycle.id}`,
+        member_id: memberId,
+        cycle_id: cycle.id,
+        amount_paid: nextPaid,
+        status: nextPaid >= weekly ? "paid" : "unpaid",
+        confirmed_at: nextPaid >= weekly ? existing?.confirmed_at || new Date().toISOString() : existing?.confirmed_at || null,
+        confirmed_by: nextPaid >= weekly ? existing?.confirmed_by || state.profile.id : existing?.confirmed_by || null,
+        updated_at: new Date().toISOString(),
+      });
+      remainingForCycleRows -= applied;
+    });
+
+  if (rows.length) {
+    handleDb(await supabase.from("member_cycles").upsert(rows));
+  }
+
+  const currentDebt = Number(member.computed_debt || 0);
+  const currentCredit = Number(member.computed_credit || 0);
+  const available = currentCredit + Number(amount || 0);
+  const computedDebt = Math.max(0, currentDebt - available);
+  const computedCredit = Math.max(0, available - currentDebt);
+  const computedTotal = deposits.reduce((sum, deposit) => sum + Number(deposit.amount || 0), 0);
+
+  handleDb(
+    await supabase
+      .from("members")
+      .update({
+        computed_debt: computedDebt,
+        computed_credit: computedCredit,
+        computed_total: computedTotal,
+        stats_updated_at: new Date().toISOString(),
+      })
+      .eq("id", memberId)
+  );
+}
+
 function renderCycleControls() {
   if (!cycleMember || !cycleSelect || !cycleStatus) return;
   cycleMember.innerHTML = "";
@@ -724,8 +788,8 @@ depositForm.addEventListener("submit", async (event) => {
         created_by: state.profile.id,
       })
     );
-    if (amount >= weekly && cycleId) await updateMemberCycleStatus(memberId, cycleId, "paid");
-    else await reloadData();
+    await applyNewDepositAllocation(memberId, amount);
+    await reloadData();
     depositAmount.value = "";
     depositDate.value = toYmd(new Date());
     showToast("Depot enregistre.", "success");
