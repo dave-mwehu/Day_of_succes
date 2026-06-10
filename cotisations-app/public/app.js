@@ -222,33 +222,25 @@ function getLastDepositDateForMember(memberId) {
 
 function computeMemberStats(member) {
   const weekly = Number(state.settings?.weekly_amount || WEEKLY_AMOUNT);
-  const activeCycles = getActiveCycles();
-  const memberDeposits = state.deposits
-    .filter((d) => d.member_id === member.id)
-    .map((d) => ({ ...d, parsedDate: parseDate(d.date) }))
-    .filter((d) => d.parsedDate)
-    .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+  const activeCycles = getActiveCycles().sort((a, b) => Number(a.index || 0) - Number(b.index || 0));
+  const memberDeposits = state.deposits.filter((d) => d.member_id === member.id);
   const total = memberDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
-  let referenceDate = memberDeposits[0]?.parsedDate || parseDate(state.settings?.start_date);
-  let credit = 0;
 
-  memberDeposits.forEach((deposit) => {
-    const accruedAtDeposit = weeksDueBetween(referenceDate, deposit.parsedDate) * weekly;
-    credit += Number(deposit.amount || 0);
-    if (credit >= accruedAtDeposit) {
-      credit -= accruedAtDeposit;
-      referenceDate = deposit.parsedDate;
-    }
+  let expected = 0;
+  activeCycles.forEach((cycle) => {
+    const row = getMemberCycle(member.id, cycle.id);
+    if (row?.status === "waived") return;
+    expected += Number(cycle.weekly_amount || weekly);
   });
 
-  const elapsedWeeks = weeksDueBetween(referenceDate, new Date());
-  const expected = elapsedWeeks * weekly;
   const manualDebtBase = Number(member.manual_debt_base ?? member.debt_adjustment ?? 0);
-  const autoDebt = Math.max(0, expected - credit);
-  const debt = Math.max(0, autoDebt + manualDebtBase);
+  const autoDebt = Math.max(0, expected - total);
+  const debt = Math.max(0, expected + manualDebtBase - total);
+  const credit = Math.max(0, total - expected - manualDebtBase);
   const lateWeeks = Math.ceil(debt / weekly);
+  const elapsedWeeks = activeCycles.length;
   const streak = computeStreak(activeCycles.map((c) => getMemberCycle(member.id, c.id) || { status: "unpaid" }));
-  return { expected, total, autoDebt, manualDebtBase, debt, lateWeeks, elapsedWeeks, lastDepositDate: getLastDepositDateForMember(member.id), streak };
+  return { expected, total, autoDebt, manualDebtBase, debt, credit, lateWeeks, elapsedWeeks, lastDepositDate: getLastDepositDateForMember(member.id), streak };
 }
 
 async function loadProfile(userId) {
