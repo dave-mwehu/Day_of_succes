@@ -223,26 +223,32 @@ function getLastDepositDateForMember(memberId) {
 function computeMemberStats(member) {
   const weekly = Number(state.settings?.weekly_amount || WEEKLY_AMOUNT);
   const activeCycles = getActiveCycles().sort((a, b) => Number(a.index || 0) - Number(b.index || 0));
-  const memberDeposits = state.deposits.filter((d) => d.member_id === member.id);
+  const memberDeposits = state.deposits
+    .filter((d) => d.member_id === member.id)
+    .map((d) => ({ ...d, parsedDate: parseDate(d.date) }))
+    .filter((d) => d.parsedDate)
+    .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
   const total = memberDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
-
-  let expected = 0;
-  activeCycles.forEach((cycle) => {
-    const row = getMemberCycle(member.id, cycle.id);
-    if (row?.status === "waived") return;
-    expected += Number(cycle.weekly_amount || weekly);
-  });
+  const firstDepositDate = memberDeposits[0]?.parsedDate || parseDate(state.settings?.start_date);
+  const firstDepositYmd = firstDepositDate ? toYmd(firstDepositDate) : null;
+  const initialCapital = memberDeposits
+    .filter((deposit) => toYmd(deposit.parsedDate) === firstDepositYmd)
+    .reduce((sum, deposit) => sum + Number(deposit.amount || 0), 0);
+  const paymentsAfterCapital = memberDeposits
+    .filter((deposit) => toYmd(deposit.parsedDate) !== firstDepositYmd)
+    .reduce((sum, deposit) => sum + Number(deposit.amount || 0), 0);
+  const elapsedWeeks = firstDepositDate ? weeksDueBetween(firstDepositDate, new Date()) : activeCycles.length;
+  const expected = elapsedWeeks * weekly;
 
   const manualDebtBase = Number(member.manual_debt_base ?? member.debt_adjustment ?? 0);
-  const storedDebt = member.computed_debt == null ? null : Number(member.computed_debt || 0);
-  const storedCredit = member.computed_credit == null ? null : Number(member.computed_credit || 0);
-  const debt = storedDebt ?? Math.max(0, expected + manualDebtBase - total);
-  const credit = storedCredit ?? 0;
-  const autoDebt = Math.max(0, debt - manualDebtBase);
+  const totalDebtBeforePayments = expected + manualDebtBase;
+  const balance = totalDebtBeforePayments - paymentsAfterCapital;
+  const debt = Math.max(0, balance);
+  const credit = Math.max(0, -balance);
+  const autoDebt = Math.max(0, expected - paymentsAfterCapital);
   const lateWeeks = Math.ceil(debt / weekly);
-  const elapsedWeeks = activeCycles.length;
   const streak = computeStreak(activeCycles.map((c) => getMemberCycle(member.id, c.id) || { status: "unpaid" }));
-  return { expected, total, autoDebt, manualDebtBase, debt, credit, lateWeeks, elapsedWeeks, lastDepositDate: getLastDepositDateForMember(member.id), streak };
+  return { expected, total, initialCapital, paymentsAfterCapital, autoDebt, manualDebtBase, debt, credit, lateWeeks, elapsedWeeks, lastDepositDate: getLastDepositDateForMember(member.id), streak };
 }
 
 async function loadProfile(userId) {
@@ -514,7 +520,7 @@ async function applyNewDepositAllocation(memberId, amount) {
     supabase.from("members").select("*").eq("id", memberId).single(),
     supabase.from("weekly_cycles").select("*").order("index"),
     supabase.from("member_cycles").select("*").eq("member_id", memberId),
-    supabase.from("deposits").select("amount").eq("member_id", memberId),
+    supabase.from("deposits").select("amount,date").eq("member_id", memberId).order("date"),
   ]);
   const member = handleDb(memberRes);
   const cycles = handleDb(cyclesRes) || [];
@@ -553,12 +559,21 @@ async function applyNewDepositAllocation(memberId, amount) {
     handleDb(await supabase.from("member_cycles").upsert(rows));
   }
 
-  const currentDebt = Number(member.computed_debt || 0);
-  const currentCredit = Number(member.computed_credit || 0);
-  const available = currentCredit + Number(amount || 0);
-  const computedDebt = Math.max(0, currentDebt - available);
-  const computedCredit = Math.max(0, available - currentDebt);
   const computedTotal = deposits.reduce((sum, deposit) => sum + Number(deposit.amount || 0), 0);
+  const datedDeposits = deposits
+    .map((deposit) => ({ ...deposit, parsedDate: parseDate(deposit.date) }))
+    .filter((deposit) => deposit.parsedDate)
+    .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+  const firstDepositDate = datedDeposits[0]?.parsedDate || parseDate(state.settings?.start_date);
+  const firstDepositYmd = firstDepositDate ? toYmd(firstDepositDate) : null;
+  const paymentsAfterCapital = datedDeposits
+    .filter((deposit) => toYmd(deposit.parsedDate) !== firstDepositYmd)
+    .reduce((sum, deposit) => sum + Number(deposit.amount || 0), 0);
+  const automaticDebt = (firstDepositDate ? weeksDueBetween(firstDepositDate, new Date()) : 0) * Number(state.settings?.weekly_amount || WEEKLY_AMOUNT);
+  const totalDebtBeforePayments = automaticDebt + Number(member.manual_debt_base ?? member.debt_adjustment ?? 0);
+  const balance = totalDebtBeforePayments - paymentsAfterCapital;
+  const computedDebt = Math.max(0, balance);
+  const computedCredit = Math.max(0, -balance);
 
   handleDb(
     await supabase
