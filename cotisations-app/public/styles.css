@@ -148,6 +148,15 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(20, 107, 95, 0.12);
 }
 
+.password-field {
+  position: relative;
+  display: block;
+}
+
+.password-field input {
+  padding-right: 72px;
+}
+
 button {
   width: 100%;
   min-height: 42px;
@@ -167,6 +176,24 @@ button:hover {
 
 button.danger {
   background: var(--danger);
+}
+
+.icon-button {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--primary-strong);
+  font-size: 12px;
+}
+
+.icon-button:hover {
+  background: #fff;
+  transform: none;
 }
 
 .inline-between,

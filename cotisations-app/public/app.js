@@ -33,6 +33,7 @@ const welcomeText = $("welcomeText");
 const systemInfo = $("systemInfo");
 const loginForm = $("loginForm");
 const logoutBtn = $("logoutBtn");
+const togglePassword = $("togglePassword");
 const depositForm = $("depositForm");
 const depositMember = $("depositMember");
 const depositAmount = $("depositAmount");
@@ -777,6 +778,15 @@ loginForm.addEventListener("submit", async (event) => {
   } catch (error) {
     showToast(`Connexion echouee: ${error.message}`, "error");
   }
+});
+
+togglePassword?.addEventListener("click", () => {
+  const password = $("password");
+  const shouldShow = password.type === "password";
+  password.type = shouldShow ? "text" : "password";
+  togglePassword.textContent = shouldShow ? "Cacher" : "Voir";
+  togglePassword.setAttribute("aria-label", shouldShow ? "Masquer le mot de passe" : "Afficher le mot de passe");
+  togglePassword.title = shouldShow ? "Masquer le mot de passe" : "Afficher le mot de passe";
 });
 
 logoutBtn.addEventListener("click", async () => {
