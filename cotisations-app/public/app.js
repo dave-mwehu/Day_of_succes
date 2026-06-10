@@ -44,6 +44,11 @@ const cycleStatus = $("cycleStatus");
 const confirmCycleBtn = $("confirmCycleBtn");
 const waiveCycleBtn = $("waiveCycleBtn");
 const reopenCycleBtn = $("reopenCycleBtn");
+const suspendWeeksForm = $("suspendWeeksForm");
+const suspendStartDate = $("suspendStartDate");
+const suspendEndDate = $("suspendEndDate");
+const resumeWeeksBtn = $("resumeWeeksBtn");
+const frozenWeeksCount = $("frozenWeeksCount");
 const membersList = $("membersList");
 const debtsTableBody = $("debtsTableBody");
 const adminDepositsList = $("adminDepositsList");
@@ -199,6 +204,19 @@ function getActiveCycles() {
   return state.weeklyCycles.filter((c) => c.status !== "cancelled" && c.status !== "frozen");
 }
 
+function getBillableCyclesAfter(date) {
+  const start = startOfDay(date);
+  const today = startOfDay(new Date());
+  return state.weeklyCycles
+    .filter((cycle) => {
+      const cycleStart = parseDate(cycle.start_date);
+      if (!cycleStart) return false;
+      const status = String(cycle.status || "open").toLowerCase();
+      return cycleStart > start && cycleStart <= today && status !== "cancelled" && status !== "frozen";
+    })
+    .sort((a, b) => Number(a.index || 0) - Number(b.index || 0));
+}
+
 function getMemberCycle(memberId, cycleId) {
   return state.memberCycles.find((mc) => mc.member_id === memberId && mc.cycle_id === cycleId) || null;
 }
@@ -238,8 +256,9 @@ function computeMemberStats(member) {
   const paymentsAfterCapital = memberDeposits
     .filter((deposit) => toYmd(deposit.parsedDate) !== firstDepositYmd)
     .reduce((sum, deposit) => sum + Number(deposit.amount || 0), 0);
-  const elapsedWeeks = firstDepositDate ? weeksDueBetween(firstDepositDate, new Date()) : activeCycles.length;
-  const expected = elapsedWeeks * weekly;
+  const billableCycles = firstDepositDate ? getBillableCyclesAfter(firstDepositDate) : activeCycles;
+  const elapsedWeeks = billableCycles.length;
+  const expected = billableCycles.reduce((sum, cycle) => sum + Number(cycle.weekly_amount || weekly), 0);
 
   const manualDebtBase = Number(member.manual_debt_base ?? member.debt_adjustment ?? 0);
   const totalDebtBeforePayments = expected + manualDebtBase;
@@ -409,6 +428,41 @@ async function ensureMemberCycles() {
   if (rows.length) handleDb(await supabase.from("member_cycles").upsert(rows));
 }
 
+function cyclesInDateRange(startDateYmd, endDateYmd) {
+  const start = parseDate(startDateYmd);
+  const end = parseDate(endDateYmd);
+  if (!start || !end) return [];
+  const from = startOfDay(start);
+  const to = startOfDay(end);
+  return state.weeklyCycles.filter((cycle) => {
+    const cycleStart = parseDate(cycle.start_date);
+    if (!cycleStart) return false;
+    const day = startOfDay(cycleStart);
+    return day >= from && day <= to;
+  });
+}
+
+async function setGlobalWeeksStatus(status) {
+  if (state.profile?.role !== "admin") return;
+  await ensureWeeklyDataModel();
+  if (!suspendStartDate.value || !suspendEndDate.value) throw new Error("Choisis une plage de dates.");
+  if (parseDate(suspendEndDate.value) < parseDate(suspendStartDate.value)) throw new Error("La date de fin doit suivre la date de début.");
+  const cycles = cyclesInDateRange(suspendStartDate.value, suspendEndDate.value);
+  if (!cycles.length) throw new Error("Aucune semaine trouvée dans cette plage.");
+  const rows = cycles.map((cycle) => ({
+    id: cycle.id,
+    index: cycle.index,
+    label: cycle.label,
+    start_date: cycle.start_date,
+    end_date: cycle.end_date,
+    weekly_amount: Number(cycle.weekly_amount || state.settings?.weekly_amount || WEEKLY_AMOUNT),
+    status,
+  }));
+  handleDb(await supabase.from("weekly_cycles").upsert(rows));
+  await reloadData();
+  showToast(status === "frozen" ? "Semaines suspendues." : "Semaines réactivées.", "success");
+}
+
 async function publishPublicStats(payload) {
   if (state.profile?.role !== "admin") return;
   const signature = JSON.stringify(payload);
@@ -570,7 +624,8 @@ async function applyNewDepositAllocation(memberId, amount) {
   const paymentsAfterCapital = datedDeposits
     .filter((deposit) => toYmd(deposit.parsedDate) !== firstDepositYmd)
     .reduce((sum, deposit) => sum + Number(deposit.amount || 0), 0);
-  const automaticDebt = (firstDepositDate ? weeksDueBetween(firstDepositDate, new Date()) : 0) * Number(state.settings?.weekly_amount || WEEKLY_AMOUNT);
+  const automaticDebt = (firstDepositDate ? getBillableCyclesAfter(firstDepositDate) : [])
+    .reduce((sum, cycle) => sum + Number(cycle.weekly_amount || state.settings?.weekly_amount || WEEKLY_AMOUNT), 0);
   const totalDebtBeforePayments = automaticDebt + Number(member.manual_debt_base ?? member.debt_adjustment ?? 0);
   const balance = totalDebtBeforePayments - paymentsAfterCapital;
   const computedDebt = Math.max(0, balance);
@@ -608,6 +663,15 @@ function renderCycleControls() {
   cycleStatus.textContent = cycleMember.value && cycleSelect.value ? `Statut actuel: ${row?.status || "unpaid"}` : "Aucun cycle selectionne.";
 }
 
+function renderSuspensionSummary() {
+  if (!frozenWeeksCount) return;
+  const count = state.weeklyCycles.filter((cycle) => String(cycle.status || "").toLowerCase() === "frozen").length;
+  frozenWeeksCount.textContent = `${count} suspendue(s)`;
+  const today = toYmd(new Date());
+  if (suspendStartDate && !suspendStartDate.value) suspendStartDate.value = today;
+  if (suspendEndDate && !suspendEndDate.value) suspendEndDate.value = today;
+}
+
 function renderDebtHistory() {
   debtHistoryList.innerHTML = "";
   state.debtAdjustments.forEach((item) => {
@@ -624,6 +688,7 @@ function renderAdmin() {
   debtsTableBody.innerHTML = "";
   adminDepositsList.innerHTML = "";
   renderCycleControls();
+  renderSuspensionSummary();
   renderDebtHistory();
 
   if (!state.members.length) {
@@ -854,6 +919,15 @@ cycleSelect?.addEventListener("change", renderCycleControls);
 confirmCycleBtn?.addEventListener("click", () => updateMemberCycleStatus(cycleMember.value, cycleSelect.value, "paid").catch((error) => showToast(error.message, "error")));
 waiveCycleBtn?.addEventListener("click", () => updateMemberCycleStatus(cycleMember.value, cycleSelect.value, "waived").catch((error) => showToast(error.message, "error")));
 reopenCycleBtn?.addEventListener("click", () => updateMemberCycleStatus(cycleMember.value, cycleSelect.value, "unpaid").catch((error) => showToast(error.message, "error")));
+
+suspendWeeksForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  setGlobalWeeksStatus("frozen").catch((error) => showToast(error.message, "error"));
+});
+
+resumeWeeksBtn?.addEventListener("click", () => {
+  setGlobalWeeksStatus("open").catch((error) => showToast(error.message, "error"));
+});
 
 async function boot() {
   if (!isConfigured) {

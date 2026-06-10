@@ -1,19 +1,20 @@
 :root {
-  --bg: #f5f7fb;
+  --bg: #eef5f4;
   --surface: #ffffff;
-  --surface-soft: #f8fafc;
+  --surface-soft: #f7fbfa;
   --text: #16202a;
   --muted: #607086;
-  --primary: #146b5f;
-  --primary-strong: #0c4d45;
-  --accent: #d79b21;
+  --primary: #0f766e;
+  --primary-strong: #0b4f49;
+  --accent: #e3a12f;
   --danger: #ba2437;
   --danger-soft: #fff0f2;
   --ok: #127a4d;
   --ok-soft: #e9f8f1;
-  --info-soft: #edf5ff;
+  --info-soft: #eaf4ff;
   --border: #dfe7ef;
-  --shadow: 0 18px 42px rgba(19, 31, 49, 0.08);
+  --shadow: 0 22px 54px rgba(11, 31, 49, 0.12);
+  --glow: 0 0 0 1px rgba(15, 118, 110, 0.08), 0 20px 70px rgba(15, 118, 110, 0.14);
 }
 
 * {
@@ -25,9 +26,14 @@ body {
   margin: 0;
   font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
   background:
-    linear-gradient(180deg, rgba(20, 107, 95, 0.08), transparent 310px),
+    linear-gradient(120deg, rgba(15, 118, 110, 0.16), transparent 32%),
+    linear-gradient(240deg, rgba(227, 161, 47, 0.15), transparent 34%),
+    linear-gradient(180deg, rgba(15, 118, 110, 0.08), transparent 360px),
+    repeating-linear-gradient(90deg, rgba(15, 118, 110, 0.035) 0 1px, transparent 1px 80px),
     var(--bg);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 160px 160px;
   color: var(--text);
+  animation: pageBreath 12s ease-in-out infinite alternate;
 }
 
 button,
@@ -40,6 +46,7 @@ select {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
   padding: 28px 0 40px;
+  animation: riseIn 0.7s ease both;
 }
 
 .header {
@@ -48,6 +55,7 @@ select {
   justify-content: space-between;
   gap: 18px;
   margin-bottom: 20px;
+  padding: 16px 0 6px;
 }
 
 .eyebrow {
@@ -69,8 +77,10 @@ p {
 
 h1 {
   margin-bottom: 0;
-  font-size: 38px;
+  font-size: clamp(34px, 5vw, 58px);
   line-height: 1.05;
+  letter-spacing: 0;
+  text-shadow: 0 10px 28px rgba(15, 118, 110, 0.13);
 }
 
 h2,
@@ -79,12 +89,21 @@ h3 {
 }
 
 .card {
+  position: relative;
   margin-bottom: 16px;
   padding: 18px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(250, 253, 252, 0.94));
   box-shadow: var(--shadow);
+  animation: cardIn 0.55s ease both;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card:hover {
+  border-color: rgba(15, 118, 110, 0.22);
+  box-shadow: var(--glow);
+  transform: translateY(-2px);
 }
 
 .topbar {
@@ -93,6 +112,18 @@ h3 {
   justify-content: space-between;
   gap: 14px;
   border-left: 4px solid var(--primary);
+  overflow: hidden;
+}
+
+.topbar::after,
+.calendar-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 18px 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--primary), transparent);
+  background-size: 180% 100%;
+  animation: lineSweep 3.8s linear infinite;
 }
 
 .session-title {
@@ -140,12 +171,14 @@ select {
   background: #fff;
   color: var(--text);
   outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 
 input:focus,
 select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(20, 107, 95, 0.12);
+  transform: translateY(-1px);
 }
 
 .password-field {
@@ -166,12 +199,18 @@ button {
   color: #fff;
   cursor: pointer;
   font-weight: 800;
-  transition: transform 0.15s ease, background 0.15s ease;
+  box-shadow: 0 12px 22px rgba(15, 118, 110, 0.18);
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 button:hover {
   background: var(--primary-strong);
   transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(15, 118, 110, 0.24);
+}
+
+button:active {
+  transform: translateY(1px) scale(0.99);
 }
 
 button.danger {
@@ -189,6 +228,7 @@ button.danger {
   background: var(--surface-soft);
   color: var(--primary-strong);
   font-size: 12px;
+  box-shadow: none;
 }
 
 .icon-button:hover {
@@ -251,6 +291,17 @@ button.danger {
   inset: 0 0 auto;
   height: 3px;
   background: var(--accent);
+  animation: lineSweep 3.2s linear infinite;
+}
+
+.kpi::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 0 42%, rgba(255, 255, 255, 0.7) 50%, transparent 58% 100%);
+  transform: translateX(-120%);
+  animation: shine 5s ease-in-out infinite;
 }
 
 .kpi h3,
@@ -291,6 +342,13 @@ button.danger {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface-soft);
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.list li:hover {
+  border-color: rgba(15, 118, 110, 0.25);
+  background: #fff;
+  transform: translateX(3px);
 }
 
 .table-wrap {
@@ -324,6 +382,15 @@ tr:last-child td {
   border-bottom: 0;
 }
 
+tbody tr {
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+
+tbody tr:hover {
+  background: rgba(15, 118, 110, 0.04);
+  transform: scale(1.002);
+}
+
 .admin-controls {
   flex-wrap: wrap;
   margin-bottom: 12px;
@@ -342,6 +409,19 @@ tr:last-child td {
 .checkbox-line input {
   width: auto;
   min-height: auto;
+}
+
+.calendar-card {
+  overflow: hidden;
+  border-color: rgba(15, 118, 110, 0.18);
+}
+
+.suspend-actions {
+  align-self: end;
+}
+
+.suspend-actions button {
+  min-width: 128px;
 }
 
 .stats {
@@ -445,6 +525,68 @@ tr:last-child td {
   }
   100% {
     background-position: -200% 0;
+  }
+}
+
+@keyframes pageBreath {
+  0% {
+    background-position: 0 0, 0 0, 0 0, 0 0;
+  }
+  100% {
+    background-position: 0 0, 0 0, 0 0, 80px 40px;
+  }
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lineSweep {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 180% 0;
+  }
+}
+
+@keyframes shine {
+  0%,
+  62% {
+    transform: translateX(-120%);
+  }
+  78%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

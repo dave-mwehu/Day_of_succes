@@ -124,6 +124,30 @@
             </div>
           </article>
 
+          <article class="card calendar-card">
+            <div class="inline-between">
+              <div>
+                <h3>Suspension globale</h3>
+                <p class="muted">Vacances, pause commune, semaines sans cotisation.</p>
+              </div>
+              <span id="frozenWeeksCount" class="badge chip-waived">0 suspendue(s)</span>
+            </div>
+            <form id="suspendWeeksForm" class="grid-3">
+              <label>
+                Du
+                <input id="suspendStartDate" type="date" required />
+              </label>
+              <label>
+                Au
+                <input id="suspendEndDate" type="date" required />
+              </label>
+              <div class="actions suspend-actions">
+                <button id="suspendWeeksBtn" type="submit">Suspendre</button>
+                <button id="resumeWeeksBtn" type="button">Réactiver</button>
+              </div>
+            </form>
+          </article>
+
           <article class="card">
             <h3>Tableau global des dettes</h3>
             <div class="admin-controls">
